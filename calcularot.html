@@ -4,24 +4,16 @@
     <meta charset="UTF-8">
     <title>Калкулатор – Граждански договор</title>
 
-    <!-- Bootstrap CDN -->
+    <!-- Bootstrap -->
     <link 
-        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" 
-        rel="stylesheet"
+        rel="stylesheet" 
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
     >
 
     <style>
-        body {
-            background: #f7f9fc;
-        }
-        .card {
-            margin-top: 40px;
-        }
-        .result-box {
-            background: #eef3fa;
-            padding: 15px;
-            border-radius: 8px;
-        }
+        body { background: #f7f9fc; }
+        .card { margin-top: 40px; }
+        .result-box { background: #eef3fa; padding: 15px; border-radius: 8px; }
     </style>
 </head>
 
@@ -29,28 +21,33 @@
 <div class="container">
     <div class="card shadow">
         <div class="card-body">
-            <h3 class="text-center mb-4">Калкулатор по граждански договор</h3>
+            <h3 class="text-center mb-4">Калкулатор по граждански договор (НПР 25%)</h3>
 
+            <!-- Избор на посока -->
             <div class="mb-3">
-                <label class="form-label">Посока на изчисление</label>
+                <label class="form-label">Посока</label>
                 <select id="mode" class="form-select">
                     <option value="grossToNet">Бруто → Нето</option>
                     <option value="netToGross">Нето → Бруто</option>
                 </select>
             </div>
 
+            <!-- Сума -->
             <div class="mb-3">
                 <label class="form-label" id="amountLabel">Брутно възнаграждение</label>
                 <input type="number" id="amount" class="form-control" placeholder="Въведи сума">
             </div>
 
+            <!-- Максимален осигурителен праг -->
             <div class="form-check mb-3">
                 <input class="form-check-input" type="checkbox" id="hasMaxInsurance">
                 <label class="form-check-label">Осигурен на максималния осигурителен праг</label>
             </div>
 
+            <!-- Бутон -->
             <button class="btn btn-primary w-100" onclick="calculate()">Изчисли</button>
 
+            <!-- Резултат -->
             <div class="mt-4 result-box d-none" id="results">
                 <h5>Резултат:</h5>
                 <p><strong>Брутно:</strong> <span id="resGross"></span></p>
@@ -62,62 +59,102 @@
     </div>
 </div>
 
+
+<!-- JS СКРИПТ – ВЪТРЕ В HTML -->
 <script>
-// Проценти
-const DOO = 0.148;
-const DZPO = 0.05;
-const ZO = 0.08;
-const TOTAL_INS = DOO + DZPO + ZO;   // 0.278
+// Проценти за граждански договор
+const DOO = 0.148;   // Пенсия 14.8%
+const DZPO = 0.05;   // УПФ 5%
+const ZO = 0.08;     // Здравно 8%
+const TOTAL_INS = DOO + DZPO + ZO;  // 0.278
 
-// 1) БРУТО → НЕТO
+// Смяна на надписа според посоката
+document.getElementById("mode").addEventListener("change", function () {
+    document.getElementById("amountLabel").innerText =
+        this.value === "grossToNet"
+            ? "Брутно възнаграждение"
+            : "Нетно възнаграждение";
+});
+
+// ------------------------------
+// 1) БРУТО → НЕТO (с НПР 25%)
+// ------------------------------
 function grossToNet(gross, hasMaxInsurance) {
+    gross = Number(gross);
 
-    let npdBase = gross * 0.75;  // НПР 25%
+    // НПР 25% → облагаемият доход е 75% от брутното
+    const base = gross * 0.75;
 
-    let ins = 0;
+    let insurance = 0;
     let tax = 0;
 
     if (!hasMaxInsurance) {
-        let insDOO = npdBase * DOO;
-        let insDZPO = npdBase * DZPO;
-        let insZO = npdBase * ZO;
+        // Осигуровките се начисляват върху 75% от брутното
+        const insDOO = base * DOO;
+        const insDZPO = base * DZPO;
+        const insZO  = base * ZO;
+        insurance = insDOO + insDZPO + insZO;
 
-        ins = insDOO + insDZPO + insZO;
-
-        let taxBase = npdBase - ins;
+        const taxBase = base - insurance;
         tax = taxBase * 0.10;
-    } else {
-        // ако е на максимум → няма осигуровки
-        let taxBase = npdBase;  
+    } 
+    else {
+        // Само данък
+        const taxBase = base;
         tax = taxBase * 0.10;
     }
 
-    let net = gross - ins - tax;
+    const net = gross - insurance - tax;
 
-    return {
-        gross,
-        insurance: ins,
-        tax,
-        net
-    };
+    return { gross, insurance, tax, net };
 }
 
-// 2) НЕТO → БРУТО
+// ---------------------------------------
+// 2) НЕТO → БРУТО (обратен калкулатор)
+// ---------------------------------------
 function netToGross(net, hasMaxInsurance) {
+    net = Number(net);
 
     let gross;
 
     if (!hasMaxInsurance) {
-        // точна константа за граждански договор с НПР 25%
-        gross = net / 0.6319;
-    } else {
-        // само данък
-        gross = net / 0.925; // 0.75 * 0.90 = 0.675 но осигуровки няма → формулата е друга
+        // Формула за НПР 25% и осигуровки:
+        // net = G * (0.925 - 0.675 * TOTAL_INS)
+        const k = 0.925 - 0.675 * TOTAL_INS;  // ≈ 0.73735
+        gross = net / k;
+    } 
+    else {
+        // Само 10% данък върху 75% от брутното:
+        // net = G * 0.925
+        gross = net / 0.925;
     }
 
     return grossToNet(gross, hasMaxInsurance);
 }
 
+
+// Основна функция – бутон "Изчисли"
+function calculate() {
+    const amount = Number(document.getElementById("amount").value);
+    const mode = document.getElementById("mode").value;
+    const hasMaxInsurance = document.getElementById("hasMaxInsurance").checked;
+
+    if (!amount || amount <= 0) {
+        alert("Моля, въведи валидна сума.");
+        return;
+    }
+
+    const result =
+        mode === "grossToNet"
+            ? grossToNet(amount, hasMaxInsurance)
+            : netToGross(amount, hasMaxInsurance);
+
+    document.getElementById("results").classList.remove("d-none");
+    document.getElementById("resGross").innerText     = result.gross.toFixed(2) + " лв";
+    document.getElementById("resInsurance").innerText = result.insurance.toFixed(2) + " лв";
+    document.getElementById("resTax").innerText       = result.tax.toFixed(2) + " лв";
+    document.getElementById("resNet").innerText       = result.net.toFixed(2) + " лв";
+}
 </script>
 
 </body>
