@@ -63,85 +63,61 @@
 </div>
 
 <script>
-/* --- ПРОМЕНЛИВИ --- */
-//const DOO = 0.1378;
-//const ZO = 0.08;
-//const DZPO = 0.05;
+// Проценти
+const DOO = 0.148;
+const DZPO = 0.05;
+const ZO = 0.08;
+const TOTAL_INS = DOO + DZPO + ZO;   // 0.278
 
-const DOO = 0.148;   // ДОО - пенсия 14.8%
-const ZO = 0.08;     // Здравно 8%
-const DZPO = 0.05;   // ДЗПО УПФ 5%
-const insuranceRate = DOO + ZO + DZPO;
-
-/* --- ВИЗУАЛНО ПРАВИЛНО ИМЕ НА ПОЛЕТО --- */
-document.getElementById("mode").addEventListener("change", function () {
-    document.getElementById("amountLabel").innerText =
-        this.value === "grossToNet" ? "Брутно възнаграждение" : "Нетно възнаграждение";
-});
-
-/* --- 1) БРУТО → НЕТО --- */
+// 1) БРУТО → НЕТO
 function grossToNet(gross, hasMaxInsurance) {
-    if (hasMaxInsurance) {
-        let tax = gross * 0.10;
-        return {
-            gross,
-            insurance: 0,
-            tax,
-            net: gross - tax
-        };
+
+    let npdBase = gross * 0.75;  // НПР 25%
+
+    let ins = 0;
+    let tax = 0;
+
+    if (!hasMaxInsurance) {
+        let insDOO = npdBase * DOO;
+        let insDZPO = npdBase * DZPO;
+        let insZO = npdBase * ZO;
+
+        ins = insDOO + insDZPO + insZO;
+
+        let taxBase = npdBase - ins;
+        tax = taxBase * 0.10;
+    } else {
+        // ако е на максимум → няма осигуровки
+        let taxBase = npdBase;  
+        tax = taxBase * 0.10;
     }
 
-    let insurance = gross * insuranceRate;
-    let taxableBase = gross - insurance;
-    let tax = taxableBase * 0.10;
-    let net = gross - insurance - tax;
+    let net = gross - ins - tax;
 
-    return { gross, insurance, tax, net };
+    return {
+        gross,
+        insurance: ins,
+        tax,
+        net
+    };
 }
 
-/* --- 2) НЕТО → БРУТО --- */
+// 2) НЕТO → БРУТО
 function netToGross(net, hasMaxInsurance) {
-    if (hasMaxInsurance) {
-        let gross = net / 0.90;
-        let tax = gross * 0.10;
-        return {
-            gross,
-            insurance: 0,
-            tax,
-            net
-        };
+
+    let gross;
+
+    if (!hasMaxInsurance) {
+        // точна константа за граждански договор с НПР 25%
+        gross = net / 0.6319;
+    } else {
+        // само данък
+        gross = net / 0.925; // 0.75 * 0.90 = 0.675 но осигуровки няма → формулата е друга
     }
 
-    let gross = net / (1 - insuranceRate - 0.10 + insuranceRate * 0.10);
-    let insurance = gross * insuranceRate;
-    let taxableBase = gross - insurance;
-    let tax = taxableBase * 0.10;
-
-    return { gross, insurance, tax, net };
+    return grossToNet(gross, hasMaxInsurance);
 }
 
-/* --- ОСНОВНА ФУНКЦИЯ --- */
-function calculate() {
-    let amount = Number(document.getElementById("amount").value);
-    let mode = document.getElementById("mode").value;
-    let hasMaxInsurance = document.getElementById("hasMaxInsurance").checked;
-
-    if (!amount || amount <= 0) {
-        alert("Моля, въведи валидна сума.");
-        return;
-    }
-
-    let result =
-        mode === "grossToNet"
-            ? grossToNet(amount, hasMaxInsurance)
-            : netToGross(amount, hasMaxInsurance);
-
-    document.getElementById("results").classList.remove("d-none");
-    document.getElementById("resGross").innerText = result.gross.toFixed(2) + " лв";
-    document.getElementById("resInsurance").innerText = result.insurance.toFixed(2) + " лв";
-    document.getElementById("resTax").innerText = result.tax.toFixed(2) + " лв";
-    document.getElementById("resNet").innerText = result.net.toFixed(2) + " лв";
-}
 </script>
 
 </body>
